@@ -40,6 +40,8 @@ export default function Home() {
   const audioBuffer = useRef<AudioBuffer>(null);
   const startTime = useRef<number>(0);
   const pauseOffset = useRef(0);
+  const animationFrameID = useRef<number>(0);
+  const lastAnimationTime = useRef<number>(0);
 
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [errorMessage, setErrorMessage] = useState<string>("");
@@ -60,6 +62,38 @@ export default function Home() {
       }
     });
   }, [isReady]);
+
+  useEffect(() => {
+    const test = (currTime: number) => {
+      if (!lastAnimationTime.current) {
+        lastAnimationTime.current = currTime / 1000;
+      }
+
+      const currTimeSeconds = currTime / 1000;
+      const delta = currTimeSeconds - lastAnimationTime.current;
+
+      const currProgress = pauseOffset.current + delta;
+      console.log(currProgress);
+      setAudioVisualProgress(currProgress);
+
+      if (isPlaying) {
+        animationFrameID.current = requestAnimationFrame(test);
+      }
+    };
+
+    if (isPlaying) {
+      animationFrameID.current = requestAnimationFrame(test);
+    } else {
+      cancelAnimationFrame(animationFrameID.current);
+      lastAnimationTime.current = 0;
+      animationFrameID.current = 0;
+    }
+
+    return () => {
+      if (animationFrameID.current > 0)
+        cancelAnimationFrame(animationFrameID.current);
+    };
+  }, [isPlaying]);
 
   const onAudioFileInput = async (
     event: React.ChangeEvent<HTMLInputElement>,
@@ -138,6 +172,7 @@ export default function Home() {
 
     try {
       audioSource.current = audio.createBufferSource();
+      audioSource.current.onended = () => setIsPlaying(false);
       audioSource.current.buffer = audioBuffer.current;
       audioSource.current.connect(audio.destination);
       startTime.current = audio.currentTime;
@@ -163,9 +198,12 @@ export default function Home() {
 
     if (isPlaying) {
       audioSource.current = audio.createBufferSource();
+      audioSource.current.onended = () => setIsPlaying(false);
       audioSource.current.buffer = audioBuffer.current;
       audioSource.current.connect(audio.destination);
       audioSource.current.start(0, pauseOffset.current);
+
+      setIsPlaying(true);
     }
   };
 
