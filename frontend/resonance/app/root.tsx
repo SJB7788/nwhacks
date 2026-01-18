@@ -80,7 +80,7 @@ export default function App() {
   );
 
   return (
-    <div className="app-root">
+    <div className="">
       <Outlet context={contextValue} />
       <div className="status-indicator">
         {socket ? "🟢 Connected" : "🔴 Disconnected"}
