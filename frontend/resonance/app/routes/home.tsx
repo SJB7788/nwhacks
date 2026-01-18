@@ -45,6 +45,7 @@ export default function Home() {
   const [errorMessage, setErrorMessage] = useState<string>("");
   const [library, setLibrary] = useState<string[]>([]);
   const [isPlaying, setIsPlaying] = useState<boolean>(false);
+  const [audioVisualProgress, setAudioVisualProgress] = useState<number>(0);
 
   useEffect(() => {
     if (!isReady) return;
@@ -105,8 +106,10 @@ export default function Home() {
 
   const onAudioPlay = async (event: React.MouseEvent<HTMLButtonElement>) => {
     if (isPlaying && audioSource.current) {
+      audioSource.current.onended = null;
       audioSource.current.stop();
       audioSource.current = null;
+
       pauseOffset.current += audio.currentTime - startTime.current;
       setIsPlaying(false);
       return;
@@ -147,6 +150,25 @@ export default function Home() {
     }
   };
 
+  const onAudioSeek = async (time: number) => {
+    if (audioSource.current) {
+      audioSource.current.onended = null;
+      audioSource.current.stop();
+      audioSource.current = null;
+    }
+
+    pauseOffset.current = time;
+    startTime.current = audio.currentTime;
+    setAudioVisualProgress(pauseOffset.current);
+
+    if (isPlaying) {
+      audioSource.current = audio.createBufferSource();
+      audioSource.current.buffer = audioBuffer.current;
+      audioSource.current.connect(audio.destination);
+      audioSource.current.start(0, pauseOffset.current);
+    }
+  };
+
   return (
     <div className="home-root">
       <ul>
@@ -159,6 +181,14 @@ export default function Home() {
           </li>
         ))}
       </ul>
+      <input
+        type="range"
+        min="0"
+        max={audioBuffer.current?.duration || 0}
+        value={audioVisualProgress}
+        onChange={(e) => onAudioSeek(parseFloat(e.target.value))}
+      />
+      <p>{audioBuffer.current?.duration}</p>
       <input
         type="file"
         accept=".mp3, .flac, .wav"
