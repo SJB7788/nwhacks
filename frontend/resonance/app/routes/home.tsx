@@ -1,4 +1,4 @@
-import { act, useEffect, useState } from "react";
+import { act, useEffect, useRef, useState } from "react";
 import { useOutletContext } from "react-router";
 
 interface ContextType {
@@ -35,9 +35,16 @@ interface SongRequest {
 
 export default function Home() {
   const { socket, audio, isReady } = useOutletContext<ContextType>();
+
+  const audioSource = useRef<AudioBufferSourceNode>(null); // useRef data persists through rerenders (also updats synchronously)
+  const audioBuffer = useRef<AudioBuffer>(null);
+  const startTime = useRef<number>(0);
+  const pauseOffset = useRef(0);
+
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [errorMessage, setErrorMessage] = useState<string>("");
   const [library, setLibrary] = useState<string[]>([]);
+  const [isPlaying, setIsPlaying] = useState<boolean>(false);
 
   useEffect(() => {
     if (!isReady) return;
@@ -97,27 +104,42 @@ export default function Home() {
   };
 
   const onAudioPlay = async (event: React.MouseEvent<HTMLButtonElement>) => {
-    if (!event.currentTarget.name) {
-      console.error("Failed to get song name");
+    if (isPlaying && audioSource.current) {
+      audioSource.current.stop();
+      audioSource.current = null;
+      setIsPlaying(false);
       return;
     }
 
+    if (audioBuffer.current === null) {
+      if (!event.currentTarget.name) {
+        console.error("Failed to get song name");
+        return;
+      }
+
+      try {
+        const response = await fetch(
+          `http://localhost:8080/get-audio?title=${event.currentTarget.name}`,
+          {
+            method: "GET",
+          },
+        );
+
+        const arrayBuffer = await response.arrayBuffer();
+        audioBuffer.current = await audio.decodeAudioData(arrayBuffer);
+      } catch (err) {
+        console.error("Failed to retrieve song", err);
+      }
+    }
+
     try {
-      const response = await fetch(
-        `http://localhost:8080/get-audio?title=${event.currentTarget.name}`,
-        {
-          method: "GET",
-        },
-      );
-
-      const arrayBuffer = await response.arrayBuffer();
-      const audioBuffer = await audio.decodeAudioData(arrayBuffer);
-
-      const audioSource = audio.createBufferSource();
-      audioSource.buffer = audioBuffer;
-      audioSource.connect(audio.destination);
-      audioSource.start();
+      audioSource.current = audio.createBufferSource();
+      audioSource.current.buffer = audioBuffer.current;
+      audioSource.current.connect(audio.destination);
+      audioSource.current.start();
       await audio.resume();
+
+      setIsPlaying(true);
     } catch (err) {
       console.error("Failed to play song", err);
     }
