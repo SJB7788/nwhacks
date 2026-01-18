@@ -107,6 +107,7 @@ export default function Home() {
     if (isPlaying && audioSource.current) {
       audioSource.current.stop();
       audioSource.current = null;
+      pauseOffset.current += audio.currentTime - startTime.current;
       setIsPlaying(false);
       return;
     }
@@ -136,7 +137,8 @@ export default function Home() {
       audioSource.current = audio.createBufferSource();
       audioSource.current.buffer = audioBuffer.current;
       audioSource.current.connect(audio.destination);
-      audioSource.current.start();
+      startTime.current = audio.currentTime;
+      audioSource.current.start(0, pauseOffset.current);
       await audio.resume();
 
       setIsPlaying(true);
