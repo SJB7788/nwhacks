@@ -9,10 +9,14 @@ import (
 	"github.com/gorilla/websocket"
 )
 
-// Upgrader changes an HTTP connection to a WebSocket connection
-var upgrader = websocket.Upgrader{
-	CheckOrigin: func(r *http.Request) bool { return true }, // Allow React (localhost:3000)
-}
+type Actions string
+
+const (
+	ActionPlay     Actions = "PLAY"
+	ActionPause    Actions = "PAUSE"
+	ActionSeek     Actions = "SEEK"
+	ActionNewTrack Actions = "NEW_TRACK"
+)
 
 var (
 	clients   = make(map[*websocket.Conn]bool)
@@ -21,9 +25,20 @@ var (
 	mutex = &sync.Mutex{}
 )
 
+type AudioInformation struct {
+	Title    string  `json:"title"`
+	Size     int64   `json:"size"`
+	Duration float64 `json:"duration"`
+}
+
 type Message struct {
-	Action    string  `json:"action"`    // "PLAY", "PAUSE", "SEEK"
-	Timestamp float64 `json:"timestamp"` // The sync time or song offset
+	Action  Actions          `json:"action"`
+	Payload AudioInformation `json:"payload"`
+}
+
+// Upgrader changes an HTTP connection to a WebSocket connection
+var upgrader = websocket.Upgrader{
+	CheckOrigin: func(r *http.Request) bool { return true }, // Allow React (localhost:3000)
 }
 
 func main() {
@@ -56,13 +71,17 @@ func handleConnections(w http.ResponseWriter, r *http.Request) {
 		err := conn.ReadJSON(&msg)
 		// blocks until read is available
 		// uses Netpoller (epoll on Linux, kqueue on MacOS, iocp on Windows)
+		fmt.Println("Message received")
 
 		if err != nil {
+			fmt.Println("Vas: ", err)
 			mutex.Lock()
 			delete(clients, conn)
 			mutex.Unlock()
 			break
 		}
+
+		fmt.Println(msg)
 
 		// send received message to the broadcast channel
 		broadcast <- msg
