@@ -41,7 +41,7 @@ export default function Home() {
   const startTime = useRef<number>(0);
   const pauseOffset = useRef(0);
   const animationFrameID = useRef<number>(0);
-  const lastAnimationTime = useRef<number>(0);
+  const previousStartTime = useRef<number>(0);
 
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [errorMessage, setErrorMessage] = useState<string>("");
@@ -64,36 +64,42 @@ export default function Home() {
   }, [isReady]);
 
   useEffect(() => {
-    const test = (currTime: number) => {
-      if (!lastAnimationTime.current) {
-        lastAnimationTime.current = currTime / 1000;
-      }
+    const updateAudioScrollView = () => {
+      if (!isPlaying || !audio) return;
 
-      const currTimeSeconds = currTime / 1000;
-      const delta = currTimeSeconds - lastAnimationTime.current;
+      const currTime = audio.currentTime;
+      const currProgress = pauseOffset.current + (currTime - startTime.current);
 
-      const currProgress = pauseOffset.current + delta;
-      console.log(currProgress);
+      // console.log(currProgress);
       setAudioVisualProgress(currProgress);
 
-      if (isPlaying) {
-        animationFrameID.current = requestAnimationFrame(test);
-      }
+      animationFrameID.current = requestAnimationFrame(updateAudioScrollView);
     };
 
     if (isPlaying) {
-      animationFrameID.current = requestAnimationFrame(test);
+      animationFrameID.current = requestAnimationFrame(updateAudioScrollView);
     } else {
       cancelAnimationFrame(animationFrameID.current);
-      lastAnimationTime.current = 0;
-      animationFrameID.current = 0;
     }
 
     return () => {
-      if (animationFrameID.current > 0)
-        cancelAnimationFrame(animationFrameID.current);
+      cancelAnimationFrame(animationFrameID.current);
     };
   }, [isPlaying]);
+
+  const sendAudioStatus = async (title: string, action: Actions) => {
+    const audioInfo: AudioInformation = {
+      title: title,
+      duration: audioBuffer.current!.duration,
+      size: audioBuffer.current!.length,
+    };
+    const message: Message = { action: action, payload: audioInfo };
+    await fetch(`http://localhost:8080/action?title=${title}`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(message),
+    });
+  };
 
   const onAudioFileInput = async (
     event: React.ChangeEvent<HTMLInputElement>,
@@ -186,6 +192,7 @@ export default function Home() {
   };
 
   const onAudioSeek = async (time: number) => {
+    console.log("seek");
     if (audioSource.current) {
       audioSource.current.onended = null;
       audioSource.current.stop();
@@ -226,6 +233,8 @@ export default function Home() {
         value={audioVisualProgress}
         onChange={(e) => onAudioSeek(parseFloat(e.target.value))}
       />
+      {/* onPointerUp to remove double inputs */}
+
       <p>{audioBuffer.current?.duration}</p>
       <input
         type="file"
