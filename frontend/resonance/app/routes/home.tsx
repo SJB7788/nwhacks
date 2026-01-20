@@ -95,7 +95,7 @@ export default function Home() {
       size: audioBuffer.current!.length,
     };
     const message: Message = { action: action, payload: audioInfo };
-    await fetch(`http://localhost:8080/action?title=${title}`, {
+    await fetch(`http://localhost:8080/action`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(message),
@@ -216,7 +216,6 @@ export default function Home() {
       audioSource.current.start(0, pauseOffset.current);
 
       setIsPlaying(true);
-      sendAudioStatus(currentSongTitle.current, Actions.PLAY);
     }
   };
 

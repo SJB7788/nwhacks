@@ -93,6 +93,9 @@ func getMusicList() ([]string, error) {
 	return songs, nil
 }
 
+func handleActionMessage(w http.ResponseWriter, r *http.Request) {
+}
+
 func handleAudioDownload(w http.ResponseWriter, r *http.Request) {
 	songName := r.URL.Query().Get("title")
 	if songName == "" {
