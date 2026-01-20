@@ -42,6 +42,7 @@ export default function Home() {
   const pauseOffset = useRef(0);
   const animationFrameID = useRef<number>(0);
   const previousStartTime = useRef<number>(0);
+  const currentSongTitle = useRef<string>("");
 
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [errorMessage, setErrorMessage] = useState<string>("");
@@ -145,6 +146,13 @@ export default function Home() {
   };
 
   const onAudioPlay = async (event: React.MouseEvent<HTMLButtonElement>) => {
+    if (!event.currentTarget.name) {
+      console.error("Failed to get song name");
+      return;
+    }
+
+    currentSongTitle.current = event.currentTarget.name;
+
     if (isPlaying && audioSource.current) {
       audioSource.current.onended = null;
       audioSource.current.stop();
@@ -152,15 +160,11 @@ export default function Home() {
 
       pauseOffset.current += audio.currentTime - startTime.current;
       setIsPlaying(false);
+      sendAudioStatus(currentSongTitle.current, Actions.PAUSE);
       return;
     }
 
     if (audioBuffer.current === null) {
-      if (!event.currentTarget.name) {
-        console.error("Failed to get song name");
-        return;
-      }
-
       try {
         const response = await fetch(
           `http://localhost:8080/get-audio?title=${event.currentTarget.name}`,
@@ -186,13 +190,13 @@ export default function Home() {
       await audio.resume();
 
       setIsPlaying(true);
+      sendAudioStatus(currentSongTitle.current, Actions.PLAY);
     } catch (err) {
       console.error("Failed to play song", err);
     }
   };
 
   const onAudioSeek = async (time: number) => {
-    console.log("seek");
     if (audioSource.current) {
       audioSource.current.onended = null;
       audioSource.current.stop();
@@ -202,6 +206,7 @@ export default function Home() {
     pauseOffset.current = time;
     startTime.current = audio.currentTime;
     setAudioVisualProgress(pauseOffset.current);
+    sendAudioStatus(currentSongTitle.current, Actions.SEEK);
 
     if (isPlaying) {
       audioSource.current = audio.createBufferSource();
@@ -211,6 +216,7 @@ export default function Home() {
       audioSource.current.start(0, pauseOffset.current);
 
       setIsPlaying(true);
+      sendAudioStatus(currentSongTitle.current, Actions.PLAY);
     }
   };
 
